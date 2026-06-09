@@ -1,0 +1,14 @@
+name: gindev
+version: 1.0.0
+description: "Developer agent for GIN"
+hermes_requires: ">=0.12.0"
+author: "gin"
+license: "MIT"
+
+# Tell installers which env vars the agent needs. These are checked against
+# the installer's shell and existing .env file so they don't get nagged
+# about keys they already have configured.
+env_requires:
+  - name: OPENAI_API_KEY
+    description: "OpenAI API key (for model access)"
+    required: true

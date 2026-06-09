@@ -1,0 +1,12 @@
+2026-06-04T10:45:29Z INSTALL verification-before-completion url:community safe sha256:363a6828d1202055
+2026-06-04T10:45:41Z INSTALL brainstorming url:community safe sha256:679e98bacd6301a4
+2026-06-04T10:45:46Z INSTALL dispatching-parallel-agents url:community safe sha256:8c7080b4b70a3aea
+2026-06-04T10:45:51Z INSTALL executing-plans url:community safe sha256:75eae5d25fd1442f
+2026-06-04T10:45:56Z INSTALL finishing-a-development-branch url:community safe sha256:6d51be3eb7c6a0df
+2026-06-04T10:46:00Z BLOCKED receiving-code-review url:community dangerous 1_findings
+2026-06-04T10:46:05Z INSTALL using-git-worktrees url:community safe sha256:a510bb89da75e1d1
+2026-06-04T10:46:10Z BLOCKED using-superpowers url:community dangerous 2_findings
+2026-06-04T10:46:15Z BLOCKED writing-skills url:community dangerous 2_findings
+2026-06-04T10:46:24Z BLOCKED receiving-code-review url:community dangerous 1_findings
+2026-06-04T10:46:32Z BLOCKED using-superpowers url:community dangerous 2_findings
+2026-06-04T10:46:40Z BLOCKED writing-skills url:community dangerous 2_findings

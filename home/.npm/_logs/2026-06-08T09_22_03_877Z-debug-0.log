@@ -1,0 +1,18 @@
+0 verbose cli /home/aioz/.local/share/nvm/v23.11.1/bin/node /home/aioz/.local/share/nvm/v23.11.1/lib/node_modules/npm/bin/npm-cli.js
+1 info using npm@10.9.2
+2 info using node@v23.11.1
+3 silly config load:file:/home/aioz/.local/share/nvm/v23.11.1/lib/node_modules/npm/npmrc
+4 silly config load:file:/home/aioz/workspace/aioz-world-deck/.worktrees/feat/cybersecurity-template/.npmrc
+5 silly config load:file:/home/aioz/.hermes/profiles/coder/home/.npmrc
+6 silly config load:file:/home/aioz/.local/share/nvm/v23.11.1/etc/npmrc
+7 verbose title npm exec lint-staged
+8 verbose argv "exec" "--" "lint-staged"
+9 verbose logfile logs-max:10 dir:/home/aioz/.hermes/profiles/coder/home/.npm/_logs/2026-06-08T09_22_03_877Z-
+10 verbose logfile /home/aioz/.hermes/profiles/coder/home/.npm/_logs/2026-06-08T09_22_03_877Z-debug-0.log
+11 silly logfile done cleaning log files
+12 verbose cwd /home/aioz/workspace/aioz-world-deck/.worktrees/feat/cybersecurity-template
+13 verbose os Linux 6.17.0-35-generic
+14 verbose node v23.11.1
+15 verbose npm  v10.9.2
+16 verbose exit 0
+17 info ok

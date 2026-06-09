@@ -1,0 +1,10 @@
+auth.json
+.env
+memories
+sessions
+state.db*
+logs/
+workspace/
+*_cache/
+local/
+

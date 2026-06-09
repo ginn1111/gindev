@@ -1,0 +1,8 @@
+{
+  "taps": [
+    {
+      "repo": "https://github.com/obra/superpowers",
+      "path": "skills/"
+    }
+  ]
+}
