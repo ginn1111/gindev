@@ -7,4 +7,10 @@ logs/
 workspace/
 *_cache/
 local/
+byterover/
+cache/
+home/
+pastes/
+spawn-trees/
+skills/.hub
 

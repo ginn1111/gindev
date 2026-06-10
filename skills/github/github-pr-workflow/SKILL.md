@@ -109,6 +109,34 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `ci`, `chore`, `perf`
 git push -u origin HEAD
 ```
 
+### If you need to push one commit while other local WIP is still unstaged
+
+Use this when the branch contains unrelated in-progress edits you do **not** want in the commit being pushed.
+
+1. Confirm the target commit is already created and only unrelated WIP remains unstaged.
+2. Stash the unrelated WIP, including untracked files:
+
+```bash
+git stash push -u -m "temp-before-push"
+```
+
+3. Pull/rebase if required, then push the branch:
+
+```bash
+git pull --rebase
+git push
+```
+
+4. Verify the pushed HEAD and upstream status, then restore the stash:
+
+```bash
+git rev-parse --short HEAD
+git status -sb
+git stash pop
+```
+
+This isolates the push without discarding local work. Use it instead of trying to `git pull --rebase` through a dirty working tree.
+
 ### Create the PR
 
 **With gh:**

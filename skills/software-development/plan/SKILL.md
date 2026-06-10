@@ -330,6 +330,20 @@ The plan skill says to "explore the codebase" — make sure this exploration spe
 
 If the plan involves re-categorizing or renaming an existing feature (e.g., moving a map layer to a new group), verify the existing group placement first. The user may want it to stay in its current group. Check existing constants and the rendered UI before proposing a move.
 
+### Wrong Layer For Derived Query Params
+
+When planning filters or query-state changes, verify **where derived API params should be computed** before you lock the design.
+
+**Bad:** Put date math / API-shape adaptation inside the filter UI component because it is the first place the user changes a value.
+**Good:** Keep the filter component lean — store raw UI state (`interval`, selected chip, etc.) in Redux/query state, and compute derived API params (`since`, formatted dates, combined flags) in the query hook or service layer that actually calls the API.
+
+Checklist before finalizing the plan:
+1. Check whether an existing hook already adapts UI/query state to API params.
+2. Prefer reusing existing utils directly (`getDateRangeFromInterval`, existing interval maps, existing transforms) over inventing a new wrapper/helper.
+3. Avoid introducing duplicate state like both `interval` and `since` in store unless the codebase already does that on purpose.
+4. If the user says "use existing code as much as possible," treat new helper functions as suspect by default — prove they are needed.
+5. In the plan's Architecture section, explicitly say which layer owns raw UI state and which layer owns API param derivation.
+
 ## Execution Handoff
 
 After saving the plan, offer the execution approach:

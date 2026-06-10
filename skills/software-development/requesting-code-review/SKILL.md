@@ -1,7 +1,7 @@
 ---
 name: requesting-code-review
 description: "Pre-commit review: security scan, quality gates, auto-fix."
-version: 2.0.0
+version: 2.1.0
 author: Hermes Agent (adapted from obra/superpowers + MorAlekss)
 license: MIT
 platforms: [linux, macos, windows]
@@ -66,6 +66,23 @@ git diff --cached | grep "^+" | grep -E "pickle\.loads?\("
 
 # SQL injection (string formatting in queries)
 git diff --cached | grep "^+" | grep -E "execute\(f\"|\.format\(.*SELECT|\.format\(.*INSERT"
+
+# === React / JSX patterns (check even for TypeScript projects) ===
+
+# XSS via dangerouslySetInnerHTML
+git diff --cached | grep "^+" | grep -E "dangerouslySetInnerHTML"
+
+# XSS via innerHTML/direct DOM manipulation
+git diff --cached | grep "^+" | grep -E "\.innerHTML\s*="
+
+# XSS via document.write
+git diff --cached | grep "^+" | grep -E "document\.write\("
+
+# URL injection (user input into window.location)
+git diff --cached | grep "^+" | grep -E "window\.location\s*="
+
+# Scheme validation on user-supplied URLs (open redirect risk)
+git diff --cached | grep "^+" | grep -E "window\.open\(|location\.href\s*="
 ```
 
 ## Step 3 — Baseline tests and linting
@@ -75,12 +92,29 @@ count BEFORE your changes as **baseline_failures** (stash changes, run, pop).
 Only NEW failures introduced by your changes block the commit.
 
 **Test frameworks** (auto-detect by project files):
+
+First, detect the package manager for Node projects — `--passWithNoTests` only works with npm's `--` forwarding, not pnpm:
+```bash
+# Detect package manager
+[ -f pnpm-lock.yaml ] && PM="pnpm" || [ -f yarn.lock ] && PM="yarn" || PM="npm"
+```
+
+Then run the appropriate command:
 ```bash
 # Python (pytest)
 python -m pytest --tb=no -q 2>&1 | tail -5
 
-# Node (npm test)
-npm test -- --passWithNoTests 2>&1 | tail -5
+# Node — use project's own test script if defined, else fall back
+# Some projects use vitest/jest directly rather than `npm test`;
+# check package.json scripts first:
+#   grep '"test"' package.json
+# pnpm may need explicit runner:   pnpm vitest run  (not pnpm test -- --flag)
+# npm/yarn forward flags via --:   npm test -- --passWithNoTests
+if [ "$PM" = "pnpm" ]; then
+  grep -q '"vitest"' package.json 2>/dev/null && pnpm vitest run 2>&1 | tail -5
+else
+  npm test -- --passWithNoTests 2>&1 | tail -5
+fi
 
 # Rust
 cargo test 2>&1 | tail -5
@@ -90,14 +124,27 @@ go test ./... 2>&1 | tail -5
 ```
 
 **Linting and type checking** (run only if installed):
+
+First, detect project-specific commands from `package.json` scripts (many projects have a custom type-check script instead of bare `tsc`):
+```bash
+# Check for project-specific scripts — these differ per project
+grep -E '"(type.?check|typecheck|lint|tsc)"' package.json 2>/dev/null
+```
+
+Then apply the appropriate commands. Use the project's own command if detected, otherwise fall back to the generic tool:
 ```bash
 # Python
 which ruff && ruff check . 2>&1 | tail -10
 which mypy && mypy . --ignore-missing-imports 2>&1 | tail -10
 
-# Node
-which npx && npx eslint . 2>&1 | tail -10
+# Node — use project script if one exists, else run tsc directly
+# If grep found "type-check" in package.json, run with project's package manager:
+#   pnpm type-check   (pnpm projects)
+#   npm run type-check  (npm projects)
+#   yarn typecheck     (yarn projects)
+# Fallback if no script detected:
 which npx && npx tsc --noEmit 2>&1 | tail -10
+which npx && npx eslint . 2>&1 | tail -10
 
 # Rust
 cargo clippy -- -D warnings 2>&1 | tail -10
@@ -106,8 +153,47 @@ cargo clippy -- -D warnings 2>&1 | tail -10
 which go && go vet ./... 2>&1 | tail -10
 ```
 
+**Test coverage check** — find test files for the areas being changed:
+```bash
+# Discover tests related to changed files
+git diff --cached --name-only | while read f; do
+  dir=$(dirname "$f")
+  test_files=$(find "$dir" -maxdepth 2 -name '*.test.*' 2>/dev/null)
+  [ -n "$test_files" ] && echo "$f → test: $test_files"
+done
+```
+
 **Baseline comparison:** If baseline was clean and your changes introduce failures,
 that's a regression. If baseline already had failures, only count NEW ones.
+Stash changes (`git stash`), run the commands above, note the error count, then
+`git stash pop`. Compare counts.
+
+**Important — type-check false regression filter:** When comparing type-check results,
+pre-existing errors in UNRELATED files are not regressions. After running both baseline
+and staged type-check, check whether errors reference YOUR changed files:
+
+```bash
+# List only changed files
+CHANGED=$(git diff --cached --name-only)
+# Check if each type error file is among the changed files
+echo "$CHANGED" | grep -q "src/hooks/query/maps" && echo "error in changed area" || echo "pre-existing, not a regression"
+```
+
+## Cache-key / derived-param review (React Query / TanStack Query)
+
+Before flagging a shared date/time normalization change as "scope creep", check whether the changed helper feeds a derived query param that becomes part of a query key.
+
+Review questions:
+- Does a UI filter store a semantic value (`interval: '30d'`) that a hook converts into a concrete API param (`since: <RFC3339>`)?
+- Does that derived API param participate in the TanStack / React Query `queryKey`?
+- If yes, would using `dayjs()` / current-time precision make the derived value change on every render or over short time intervals, causing cache-key churn?
+- If yes, then normalization such as `startOf('day')` may be intentional and correctness-related, not random scope creep.
+
+Pitfall:
+- A reviewer who looks only at the shared helper diff may miss that time-level precision can create unstable query keys, extra refetches, or loading-state drift. Trace `filter state -> derived param -> queryKey` before judging the change.
+
+Preferred review outcome:
+- If normalization is needed for cache-key stability but the placement is debatable, say so explicitly: "logic valid, placement may be too broad" instead of blanket-failing the change as unintended semantics drift.
 
 ## Step 4 — Self-review checklist
 
@@ -258,6 +344,24 @@ element.innerHTML = userInput;
 element.textContent = userInput;
 ```
 
+### React Query / cache-key normalization
+
+When reviewing hooks that derive API params from UI state, inspect whether the derived values are also part of the query key.
+
+```ts
+// Risky: cache key churns every render / every second
+const since = dayjs().subtract(30, 'day').toISOString();
+useQuery({ queryKey: ['layer', { since }] });
+
+// Better: normalize to semantic bucket used by UI state
+const since = dayjs().startOf('day').subtract(30, 'day').toISOString();
+useQuery({ queryKey: ['layer', { since }] });
+```
+
+**Review rule:** if a timestamp/date string is derived from a stable UI filter (`'7d'`, `'30d'`, etc.) and included in a TanStack/React Query cache key, check whether precision below the filter's semantic bucket will cause unnecessary cache misses or refetch churn.
+
+**Counter-rule:** don't stop at "why is this date rounded?" Review both intent and placement. A normalization change may be correct for cache-key stability but still belong in the feature-specific hook rather than a shared date helper, to avoid changing semantics for unrelated callers.
+
 ## Integration with Other Skills
 
 **subagent-driven-development:** Run this after EACH task as the quality gate.
@@ -273,6 +377,7 @@ tests exist, tests pass, no regressions.
 - **Empty diff** — check `git status`, tell user nothing to verify
 - **Not a git repo** — skip and tell user
 - **Large diff (>15k chars)** — split by file, review each separately
+- **git stash pop unstages everything** — after baseline comparison, `git stash pop` restores changes but UNSTAGES them. You need to `git add <files>` again before continuing Step 4+. Safer: use `git stash push --staged` (stashes only staged) then pop recovers them still staged. If already popped, re-stage with `git add -A`.
 - **delegate_task returns non-JSON** — retry once with stricter prompt, then treat as FAIL
 - **False positives** — if reviewer flags something intentional, note it in fix prompt
 - **No test framework found** — skip regression check, reviewer verdict still runs
